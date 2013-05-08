@@ -272,6 +272,30 @@ class OpenStackNodeDriver(NodeDriver, OpenStackDriverMixin):
         return self._reboot_node(node, reboot_type='HARD')
 
 
+class OpenStackNodeSize(NodeSize):
+    """
+    NodeSize class for the OpenStack.org driver.
+
+    Following the example of OpenNebula.org driver
+    and following guidelines :
+    https://issues.apache.org/jira/browse/LIBCLOUD-119
+    """
+
+    def __init__(self, id, name, ram, disk, bandwidth, price, driver,
+                 cpu=None):
+        super(OpenStackNodeSize, self).__init__(id=id, name=name, ram=ram,
+                                                disk=disk,
+                                                bandwidth=bandwidth,
+                                                price=price, driver=driver)
+        self.cpu = cpu
+
+    def __repr__(self):
+        return (('<OpenStackNodeSize: id=%s, name=%s, ram=%s, disk=%s, '
+                 'bandwidth=%s, price=%s, driver=%s, cpu=%s,  ...>')
+                % (self.id, self.name, self.ram, self.disk, self.bandwidth,
+                   self.price, self.driver.name, self.cpu))
+
+
 class OpenStack_1_0_Response(OpenStackResponse):
     def __init__(self, *args, **kwargs):
         # done because of a circular reference from
@@ -769,15 +793,16 @@ class OpenStack_1_0_NodeDriver(OpenStackNodeDriver):
         return [self._to_size(el) for el in elements]
 
     def _to_size(self, el):
-        return NodeSize(id=el.get('id'),
-                        name=el.get('name'),
-                        ram=int(el.get('ram')),
-                        disk=int(el.get('disk')),
-                        # XXX: needs hardcode
-                        bandwidth=None,
-                        # Hardcoded
-                        price=self._get_size_price(el.get('id')),
-                        driver=self.connection.driver)
+        return OpenStackNodeSize(id=el.get('id'),
+                                 name=el.get('name'),
+                                 ram=int(el.get('ram')),
+                                 disk=int(el.get('disk')),
+                                 # XXX: needs hardcode
+                                 cpu=int(el.get('vcpus')),
+                                 bandwidth=None,
+                                 # Hardcoded
+                                 price=self._get_size_price(el.get('id')),
+                                 driver=self.connection.driver)
 
     def ex_limits(self):
         """
@@ -1639,11 +1664,12 @@ class OpenStack_1_1_NodeDriver(OpenStackNodeDriver):
         if not price:
             price = self._get_size_price(str(api_flavor['id']))
 
-        return NodeSize(
+        return OpenStackNodeSize(
             id=api_flavor['id'],
             name=api_flavor['name'],
             ram=api_flavor['ram'],
             disk=api_flavor['disk'],
+            cpu=api_flavor['vcpus'],
             bandwidth=bandwidth,
             price=price,
             driver=self,
